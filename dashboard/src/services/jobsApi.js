@@ -1,5 +1,5 @@
 import { fetchJson } from './apiClient'
-import { fetchJobsStatic, fetchStatsStatic } from './staticJobs'
+import { fetchJobsStatic, fetchStatsStatic, saveJobsStatic } from './staticJobs'
 
 export const isStaticMode = import.meta.env.VITE_STATIC_DATA === '1'
 
@@ -42,13 +42,32 @@ export function collectJobs(payload) {
   })
 }
 
-export function importPastedJobs(payload) {
-  if (isStaticMode) {
-    return Promise.reject(new Error('靜態展示版不提供手動匯入，請在本地啟動 API 使用。'))
+export async function importParsedJobs(parsed) {
+  const summary = {
+    input_format: parsed.inputFormat,
+    parsed_count: parsed.jobs.length,
+    saved_count: 0,
+    keyword: parsed.keyword,
+    company_name: parsed.companyName,
+    items: parsed.jobs.slice(0, 20)
   }
-  return fetchJson(`${apiBase}/api/import/paste`, {
+
+  if (!parsed.jobs.length) {
+    return summary
+  }
+
+  if (isStaticMode) {
+    return { ...summary, saved_count: saveJobsStatic(parsed.jobs) }
+  }
+
+  return fetchJson(`${apiBase}/api/import/jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      input_format: parsed.inputFormat,
+      keyword: parsed.keyword,
+      company_name: parsed.companyName,
+      items: parsed.jobs
+    })
   })
 }

@@ -10,7 +10,8 @@ import JobDetail from '../features/jobs/components/JobDetail.vue'
 import JobList from '../features/jobs/components/JobList.vue'
 import ManualImportPanel from '../features/jobs/components/ManualImportPanel.vue'
 import StatsCharts from '../features/jobs/components/StatsCharts.vue'
-import { collectJobs, fetchJobs, fetchStats, importPastedJobs, isStaticMode } from '../services/jobsApi'
+import { collectJobs, fetchJobs, fetchStats, importParsedJobs, isStaticMode } from '../services/jobsApi'
+import { parseManualJobs } from '../services/manualImport'
 
 const jobs = ref([])
 const stats = ref({ total: 0, keywords: [], companies: [], locations: [], latest_scraped_at: '' })
@@ -100,12 +101,12 @@ async function handleManualImport() {
   errorMessage.value = ''
   importResult.value = null
   try {
-    const result = await importPastedJobs({
+    const parsed = await parseManualJobs(importForm.value.content, {
       keyword: '',
-      company_name: importForm.value.companyName,
-      input_format: importForm.value.inputFormat,
-      content: importForm.value.content
+      companyName: importForm.value.companyName,
+      inputFormat: importForm.value.inputFormat
     })
+    const result = await importParsedJobs(parsed)
     importResult.value = result
     filters.value.keyword = result.keyword || ''
     await reloadAll()
@@ -144,8 +145,8 @@ onMounted(reloadAll)
     <HeroSummary :stats="stats" />
     <section v-if="isStaticMode" class="panel static-note">
       <p>
-        這是 GitHub Pages 靜態展示版：資料來自預先匯出的示範 JSON，篩選與統計皆在瀏覽器端完成。
-        診斷收集與手動匯入需要在本地啟動 FastAPI 才能使用。
+        這是 GitHub Pages 靜態展示版：內建資料為虛構示範職缺，篩選、統計與手動匯入解析皆在瀏覽器端完成。
+        你匯入的資料只會存在自己瀏覽器的 localStorage，不會上傳；診斷收集需在本地啟動 FastAPI 才能使用。
       </p>
     </section>
     <template v-if="!isStaticMode">
@@ -153,7 +154,7 @@ onMounted(reloadAll)
       <CollectResult v-if="collectResult" :result="collectResult" />
     </template>
     <CrawlerLessons />
-    <ManualImportPanel v-if="!isStaticMode" v-model="importForm" :importing="importing" :result="importResult" @submit="handleManualImport" />
+    <ManualImportPanel v-model="importForm" :importing="importing" :result="importResult" @submit="handleManualImport" />
 
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 

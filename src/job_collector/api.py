@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from job_collector.config import CollectorConfig
 from job_collector.crawler_104 import Crawler104
-from job_collector.manual_import import parse_manual_jobs
+from job_collector.models import JobPost
 from job_collector.storage import JobStorage
 
 DEFAULT_DATABASE_PATH = Path("output/jobs.sqlite3")
@@ -38,11 +38,28 @@ class CollectRequest(BaseModel):
     max_delay_seconds: float = Field(default=5, ge=1, le=60)
 
 
-class ManualImportRequest(BaseModel):
-    content: str = Field(min_length=1)
-    keyword: str = Field(default="", max_length=80)
+class ImportJobItem(BaseModel):
+    job_id: str = Field(min_length=1, max_length=120)
+    source: str = Field(default="manual", max_length=40)
+    keyword: str = Field(default="", max_length=120)
+    title: str = ""
+    company_name: str = ""
+    location: str = ""
+    salary: str = ""
+    experience: str = ""
+    education: str = ""
+    description: str = ""
+    requirement: str = ""
+    tags: str = ""
+    job_url: str = ""
+    scraped_at: str = ""
+
+
+class ImportJobsRequest(BaseModel):
+    input_format: str = Field(default="unknown", max_length=20)
+    keyword: str = Field(default="", max_length=120)
     company_name: str = Field(default="", max_length=120)
-    input_format: str = Field(default="auto")
+    items: list[ImportJobItem] = Field(min_length=1, max_length=500)
 
 
 def get_storage() -> JobStorage:
@@ -89,21 +106,22 @@ def get_stats() -> dict[str, Any]:
     return get_storage().stats()
 
 
-@app.post("/api/import/paste")
-def import_pasted_jobs(payload: ManualImportRequest) -> dict[str, Any]:
-    detected_format, jobs = parse_manual_jobs(
-        payload.content,
-        keyword=payload.keyword,
-        company_name=payload.company_name,
-        input_format=payload.input_format,
-    )
+@app.post("/api/import/jobs")
+def import_parsed_jobs(payload: ImportJobsRequest) -> dict[str, Any]:
+    jobs = []
+    for item in payload.items:
+        fields = item.model_dump()
+        if not fields["scraped_at"]:
+            fields.pop("scraped_at")
+        jobs.append(JobPost(**fields))
+
     storage = get_storage()
     saved_count = storage.upsert_many(jobs)
     csv_path = storage.export_csv(DEFAULT_OUTPUT_DIR / "jobs.csv")
     excel_path = storage.export_excel(DEFAULT_OUTPUT_DIR / "jobs.xlsx")
 
     return {
-        "input_format": detected_format,
+        "input_format": payload.input_format,
         "parsed_count": len(jobs),
         "saved_count": saved_count,
         "keyword": jobs[0].keyword if jobs else payload.keyword,

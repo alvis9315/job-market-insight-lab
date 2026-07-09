@@ -12,7 +12,6 @@
 job-market-insight-lab
 ├─ src/job_collector
 │  ├─ crawler_104.py      # Python + Playwright：小量診斷指定職缺頁
-│  ├─ manual_import.py    # 解析手動貼上的 HTML / 文字 / CSV
 │  ├─ storage.py          # SQLite / CSV / Excel 儲存與查詢
 │  ├─ export_static.py    # 匯出 jobs.json 給靜態展示版
 │  ├─ api.py              # FastAPI：提供 Dashboard 讀取資料
@@ -20,6 +19,7 @@ job-market-insight-lab
 │  ├─ config.py
 │  └─ models.py
 ├─ dashboard              # Vue 3 + Vite Dashboard
+│  ├─ src/services/manualImport.js   # 手動匯入解析器（DOMParser，瀏覽器端執行）
 │  └─ public/data/jobs.json   # 靜態展示版資料（預設為虛構示範資料）
 ├─ .github/workflows/deploy-pages.yml   # GitHub Pages 自動部署
 ├─ config.example.yaml
@@ -79,7 +79,7 @@ FastAPI 後端 API
 Vue 3 Dashboard
 ```
 
-Python 負責「資料匯入、清洗、儲存」；Vue 3 負責「資料呈現、篩選、分析」。
+手動匯入的解析（HTML / 文字 / CSV）在瀏覽器端以 DOMParser 完成；Python 負責「儲存、查詢、CSV / Excel 匯出」；Vue 3 負責「解析、資料呈現、篩選、分析」。
 
 ## 後端安裝
 
@@ -145,7 +145,7 @@ http://127.0.0.1:8000
 | GET | `/api/jobs` | 查詢職缺列表 |
 | GET | `/api/jobs/{job_id}` | 查詢單筆職缺 |
 | GET | `/api/stats` | 查詢統計資料 |
-| POST | `/api/import/paste` | 手動貼上 HTML / 文字 / CSV 匯入 |
+| POST | `/api/import/jobs` | 儲存前端解析完成的匯入職缺 |
 | POST | `/api/collect` | 透過 API 觸發小量診斷收集 |
 
 常用查詢：
@@ -185,8 +185,8 @@ Dashboard 目前包含：
 
 Dashboard 有兩種資料模式：
 
-- **API 模式（預設，本地開發）**：`npm run dev`，透過 FastAPI 讀寫 SQLite，支援診斷收集與手動匯入。
-- **靜態模式（展示部署）**：`npm run dev:static` 或 `npm run build:pages`，直接讀取 `public/data/jobs.json`，篩選與統計在瀏覽器端完成；診斷收集與手動匯入面板會隱藏。
+- **API 模式（預設，本地開發）**：`npm run dev`，手動匯入在瀏覽器端解析後交給 FastAPI 寫入 SQLite，支援診斷收集。
+- **靜態模式（展示部署）**：`npm run dev:static` 或 `npm run build:pages`，讀取 `public/data/jobs.json`；手動匯入照常可用，解析後存入瀏覽器 localStorage（只留在訪客自己的瀏覽器），診斷收集面板隱藏。
 
 ## 建議使用流程
 

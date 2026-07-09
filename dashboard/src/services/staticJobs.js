@@ -12,20 +12,44 @@ const FULL_TEXT_FIELDS = [
   'tags'
 ]
 
-let cache = null
+const STORAGE_KEY = 'jmil-manual-jobs'
 
-async function loadAllJobs() {
-  if (!cache) {
+let demoCache = null
+
+async function loadDemoJobs() {
+  if (!demoCache) {
     const response = await fetch(dataUrl)
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }
     const data = await response.json()
-    cache = (data.items || [])
-      .slice()
-      .sort((a, b) => String(b.scraped_at || '').localeCompare(String(a.scraped_at || '')))
+    demoCache = data.items || []
   }
-  return cache
+  return demoCache
+}
+
+function loadStoredJobs() {
+  try {
+    const items = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    return Array.isArray(items) ? items : []
+  } catch {
+    return []
+  }
+}
+
+export function saveJobsStatic(jobs) {
+  const merged = new Map(loadStoredJobs().map(job => [job.job_id, job]))
+  jobs.forEach(job => merged.set(job.job_id, job))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...merged.values()]))
+  return jobs.length
+}
+
+async function loadAllJobs() {
+  const merged = new Map((await loadDemoJobs()).map(job => [job.job_id, job]))
+  loadStoredJobs().forEach(job => merged.set(job.job_id, job))
+  return [...merged.values()].sort((a, b) =>
+    String(b.scraped_at || '').localeCompare(String(a.scraped_at || ''))
+  )
 }
 
 function includes(value, term) {
