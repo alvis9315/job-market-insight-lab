@@ -1,0 +1,16 @@
+# 個人用、低頻率、公開頁面資料整理與診斷
+keyword: "前端工程師 Vue"
+pages: 3
+headless: false
+min_delay_seconds: 2
+max_delay_seconds: 5
+output_dir: "output"
+database_path: "output/jobs.sqlite3"
+export_csv: true
+export_excel: true
+
+# 目標網站若支援 query string，可自行補參數，例如：
+# extra_query:
+#   area: "example-area"
+#   order: "15"
+extra_query: {}

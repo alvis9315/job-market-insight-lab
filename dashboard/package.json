@@ -1,0 +1,21 @@
+{
+  "name": "job-market-insight-dashboard",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "dev:static": "VITE_STATIC_DATA=1 vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "build:pages": "VITE_STATIC_DATA=1 vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.24.0",
+    "@vitejs/plugin-vue": "5.2.1",
+    "echarts": "5.5.1",
+    "vite": "6.0.6",
+    "vue": "3.5.13",
+    "vue-echarts": "7.0.3"
+  }
+}
