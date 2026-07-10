@@ -81,6 +81,8 @@ Vue 3 Dashboard
 
 手動匯入的解析（HTML / 文字 / CSV）在瀏覽器端以 DOMParser 完成；Python 負責「儲存、查詢、CSV / Excel 匯出」；Vue 3 負責「解析、資料呈現、篩選、分析」。
 
+HTML 解析有三層 fallback：職缺列表卡片 → 單一職缺詳細頁 → 頁面內嵌的 JSON-LD（`<script type="application/ld+json">`）。第三層讀的是 104 為 SEO 主動公開、存在於使用者可見頁面中的 schema.org 結構化資料，因此即使整頁隨手複製也能取得職缺名稱、完整說明與網址；此路徑只讀取頁面已公開的內容，不重放任何受保護的 API 請求。
+
 ## 後端安裝
 
 ### macOS / Linux

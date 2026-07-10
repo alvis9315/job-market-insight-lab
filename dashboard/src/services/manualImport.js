@@ -254,13 +254,119 @@ async function parseDetailHtmlJob(doc, rawContent, { keyword, companyName }) {
   ]
 }
 
+// 把 <br> 轉成換行、去掉其餘標籤，供 JSON-LD 的職缺說明使用
+function htmlToMultiline(value) {
+  const withBreaks = String(value || '').replace(/<br\s*\/?>/gi, '\n')
+  const stripped = withBreaks.replace(/<[^>]+>/g, ' ')
+  return normalizeMultiline(unescapeHtml(stripped))
+}
+
+// 深度走訪 JSON-LD 結構，收集所有物件節點
+function collectJsonLdNodes(value, acc = []) {
+  if (Array.isArray(value)) {
+    value.forEach(item => collectJsonLdNodes(item, acc))
+  } else if (value && typeof value === 'object') {
+    acc.push(value)
+    Object.values(value).forEach(child => collectJsonLdNodes(child, acc))
+  }
+  return acc
+}
+
+function jsonLdType(node) {
+  const type = node?.['@type']
+  return Array.isArray(type) ? type : type ? [type] : []
+}
+
+function findCompanyFromJsonLd(nodes) {
+  for (const node of nodes) {
+    if (jsonLdType(node).includes('Organization') && node.name) {
+      const locality = normalizeText(node.address?.addressLocality)
+      return { name: normalizeText(node.name), locality }
+    }
+  }
+  const withPublisher = nodes.find(node => node.publisher?.name)
+  if (withPublisher) {
+    return {
+      name: normalizeText(withPublisher.publisher.name),
+      locality: normalizeText(withPublisher.publisher.address?.addressLocality)
+    }
+  }
+  return { name: '', locality: '' }
+}
+
+async function parseJsonLdJobs(doc, { keyword, companyName }) {
+  const nodes = []
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+    try {
+      collectJsonLdNodes(JSON.parse(script.textContent), nodes)
+    } catch {
+      // 忽略無法解析的 JSON-LD 區塊
+    }
+  })
+  if (!nodes.length) {
+    return []
+  }
+
+  const listItems = []
+  nodes
+    .filter(node => jsonLdType(node).includes('ItemList') && Array.isArray(node.itemListElement))
+    .forEach(node => {
+      node.itemListElement.forEach(element => {
+        const item = element?.item || element
+        if (item?.name && (item.url || item['@id'])) {
+          listItems.push(item)
+        }
+      })
+    })
+  if (!listItems.length) {
+    return []
+  }
+
+  const company = findCompanyFromJsonLd(nodes)
+  const resolvedCompany = companyName || company.name
+  const jobs = []
+  const seen = new Set()
+
+  for (const item of listItems) {
+    const rawUrl = item.url || String(item['@id'] || '').replace(/#.*$/, '')
+    const jobUrl = normalizeUrl(normalizeText(rawUrl))
+    const idMatch = JOB_URL_PATTERN.exec(jobUrl)
+    const title = normalizeText(item.name)
+    const { description, requirement } = splitDescriptionRequirement(htmlToMultiline(item.description))
+    const jobId = idMatch ? idMatch[1] : await stableManualId(`${title}|${jobUrl}`)
+    if (seen.has(jobId)) {
+      continue
+    }
+    seen.add(jobId)
+
+    jobs.push(
+      makeJob({
+        job_id: jobId,
+        source: '104-manual-jsonld',
+        keyword,
+        title,
+        company_name: resolvedCompany,
+        location: company.locality,
+        description,
+        requirement,
+        job_url: jobUrl
+      })
+    )
+  }
+  return jobs
+}
+
 async function parseHtmlJobs(content, context) {
   const doc = new DOMParser().parseFromString(content, 'text/html')
   const listJobs = await parseListHtmlJobs(doc, context)
   if (listJobs.length) {
     return listJobs
   }
-  return parseDetailHtmlJob(doc, content, context)
+  const detailJobs = await parseDetailHtmlJob(doc, content, context)
+  if (detailJobs.length) {
+    return detailJobs
+  }
+  return parseJsonLdJobs(doc, context)
 }
 
 // 極簡 RFC 4180 CSV 解析：支援引號欄位、跳脫的雙引號與欄內換行
