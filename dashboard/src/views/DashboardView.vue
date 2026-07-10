@@ -161,8 +161,8 @@ onMounted(reloadAll)
     <FiltersPanel v-model="filters" :stats="stats" @apply="loadJobs" @reset="resetFilters" />
 
     <section class="content-grid">
-      <JobList :jobs="jobs" :loading="loading" :selected-job="selectedJob" @select="openJob" />
-      <JobDetail :job="selectedJob" />
+      <JobList :jobs="jobs" :loading="loading" :selected-job="selectedJob" :highlight="filters.q" @select="openJob" />
+      <JobDetail :job="selectedJob" :highlight="filters.q" />
     </section>
 
     <StatsCharts :stats="stats" />
